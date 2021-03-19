@@ -72,6 +72,8 @@ func calculateSingleHash(data int, out chan interface{}, mutex *sync.Mutex, wg *
 	go calculateFirstSingleHashPart(stringValue, firstPartChannel)
 	go calculateSecondSingleHashPart(stringValue, secondPartChannel, mutex)
 	s := <-firstPartChannel + "~" + <-secondPartChannel
+	close(firstPartChannel)
+	close(secondPartChannel)
 	fmt.Println(s)
 	out <- s
 }
