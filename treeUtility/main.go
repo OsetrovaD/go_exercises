@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type DirEntryPredicate func(entry os.DirEntry) bool
+type FileInfoPredicate func(entry os.FileInfo) bool
 
 const (
 	entryPrefix           = "├───"
@@ -18,7 +18,7 @@ const (
 	middleSubfolderPrefix = "│" + "\t"
 )
 
-func sortFunction(entries []os.DirEntry) func(i, j int) bool {
+func sortFunction(entries []os.FileInfo) func(i, j int) bool {
 	return func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
 	}
@@ -53,7 +53,7 @@ func collectEntries(path string, withFiles bool) (result []string) {
 
 	sort.Slice(entries, sortFunction(entries))
 	if !withFiles {
-		entries = filter(entries, func(entry os.DirEntry) bool { return entry.IsDir() })
+		entries = filter(entries, func(entry os.FileInfo) bool { return entry.IsDir() })
 	}
 
 	for index, entry := range entries {
@@ -68,20 +68,18 @@ func collectEntries(path string, withFiles bool) (result []string) {
 	return
 }
 
-func getFileName(entry os.DirEntry) string {
-	info, err := entry.Info()
-	check(err)
-	size := fmt.Sprintf("%db", info.Size())
-	if info.Size() == 0 {
+func getFileName(entry os.FileInfo) string {
+	size := fmt.Sprintf("%db", entry.Size())
+	if entry.Size() == 0 {
 		size = zeroSize
 	}
 	return entry.Name() + fmt.Sprintf(" (%s)", size)
 }
 
-func getEntries(path string) *[]os.DirEntry {
+func getEntries(path string) *[]os.FileInfo {
 	open, err := os.Open(path)
 	check(err)
-	entries, err := open.ReadDir(-1)
+	entries, err := open.Readdir(-1)
 	check(err)
 	return &entries
 }
@@ -107,7 +105,7 @@ func addWithSubfolders(temp *[]string, entryName string, prefix string, subfolde
 	}
 }
 
-func filter(entries []os.DirEntry, filterFunc DirEntryPredicate) (result []os.DirEntry) {
+func filter(entries []os.FileInfo, filterFunc FileInfoPredicate) (result []os.FileInfo) {
 	for _, entry := range entries {
 		if filterFunc(entry) {
 			result = append(result, entry)
