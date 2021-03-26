@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+type DirEntryPredicate func(entry os.DirEntry) bool
+
 const (
 	entryPrefix           = "├───"
 	lastEntryPrefix       = "└───"
@@ -36,7 +38,7 @@ func main() {
 }
 
 func dirTree(output io.Writer, path string, withFiles bool) error {
-	_, err := output.Write([]byte(strings.Join(collectEntries(path, withFiles), "")))
+	_, err := fmt.Fprint(output, strings.Join(collectEntries(path, withFiles), ""))
 	if err != nil {
 		return err
 	}
@@ -79,7 +81,6 @@ func getFileName(entry os.DirEntry) string {
 func getEntries(path string) *[]os.DirEntry {
 	open, err := os.Open(path)
 	check(err)
-
 	entries, err := open.ReadDir(-1)
 	check(err)
 	return &entries
@@ -106,9 +107,9 @@ func addWithSubfolders(temp *[]string, entryName string, prefix string, subfolde
 	}
 }
 
-func filter(entries []os.DirEntry, predicate func(entry os.DirEntry) bool) (result []os.DirEntry) {
+func filter(entries []os.DirEntry, filterFunc DirEntryPredicate) (result []os.DirEntry) {
 	for _, entry := range entries {
-		if predicate(entry) {
+		if filterFunc(entry) {
 			result = append(result, entry)
 		}
 	}
