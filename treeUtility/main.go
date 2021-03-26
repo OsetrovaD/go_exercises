@@ -43,11 +43,10 @@ func dirTree(output io.Writer, path string, withFiles bool) error {
 	return nil
 }
 
-func collectEntries(path string, withFiles bool) []string {
-	var temp []string
+func collectEntries(path string, withFiles bool) (result []string) {
 	entries := *getEntries(path)
 	if len(entries) == 0 {
-		return temp
+		return
 	}
 
 	sort.Slice(entries, sortFunction(entries))
@@ -59,13 +58,12 @@ func collectEntries(path string, withFiles bool) []string {
 		length := len(entries)
 		if entry.IsDir() {
 			subfolders := collectEntries(path+string(os.PathSeparator)+entry.Name(), withFiles)
-			getCollectForDir(index, length)(&temp, entry.Name(), subfolders)
+			getCollectForDir(index, length)(&result, entry.Name(), subfolders)
 		} else {
-			addFile(index, length, &temp, getFileName(entry))
+			addFile(index, length, &result, getFileName(entry))
 		}
 	}
-
-	return temp
+	return
 }
 
 func getFileName(entry os.DirEntry) string {
