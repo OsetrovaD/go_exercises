@@ -5,15 +5,15 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 )
 
 const (
-	entryPrefix     = "├───"
-	lastEntryPrefix = "└───"
-	middleLineStart = "│"
-	zeroSize        = "empty"
+	entryPrefix           = "├───"
+	lastEntryPrefix       = "└───"
+	zeroSize              = "empty"
+	pattern               = "%s%s\n"
+	middleSubfolderPrefix = "│" + "\t"
 )
 
 func sortFunction(entries []os.DirEntry) func(i, j int) bool {
@@ -36,7 +36,7 @@ func main() {
 }
 
 func dirTree(output io.Writer, path string, withFiles bool) error {
-	_, err := output.Write([]byte(strings.Join(collectEntries(path, withFiles), "\n") + "\n"))
+	_, err := output.Write([]byte(strings.Join(collectEntries(path, withFiles), "")))
 	if err != nil {
 		return err
 	}
@@ -44,70 +44,85 @@ func dirTree(output io.Writer, path string, withFiles bool) error {
 }
 
 func collectEntries(path string, withFiles bool) []string {
-	//TODO: refactoring
-
-	open, err := os.Open(path)
-	check(err)
-
-	entries, err := open.ReadDir(-1)
-	check(err)
-
 	var temp []string
-	var entriesTemp []os.DirEntry
-
+	entries := *getEntries(path)
 	if len(entries) == 0 {
 		return temp
 	}
 
 	sort.Slice(entries, sortFunction(entries))
-
 	if !withFiles {
-		for _, ent := range entries {
-			if ent.IsDir() {
-				entriesTemp = append(entriesTemp, ent)
-			}
-		}
-	} else {
-		entriesTemp = entries
+		entries = filter(entries, func(entry os.DirEntry) bool { return entry.IsDir() })
 	}
 
-	for index, entry := range entriesTemp {
-		if !withFiles {
-			if !entry.IsDir() {
-				continue
-			}
-		}
-		var children []string
-		var postfix string
+	for index, entry := range entries {
+		length := len(entries)
 		if entry.IsDir() {
-			children = collectEntries(path+string(os.PathSeparator)+entry.Name(), withFiles)
+			subfolders := collectEntries(path+string(os.PathSeparator)+entry.Name(), withFiles)
+			getCollectForDir(index, length)(&temp, entry.Name(), subfolders)
 		} else {
-			info, err := entry.Info()
-			check(err)
-			size := strconv.FormatInt(info.Size(), 10) + "b"
-			if info.Size() == 0 {
-				size = zeroSize
-			}
-			postfix = fmt.Sprintf(" (%s)", size)
-		}
-		if index != len(entriesTemp)-1 {
-			temp = append(temp, entryPrefix+entry.Name()+postfix)
-			if len(children) != 0 {
-				for _, child := range children {
-					temp = append(temp, middleLineStart+"\t"+child)
-				}
-			}
-		} else {
-			temp = append(temp, lastEntryPrefix+entry.Name()+postfix)
-			if len(children) != 0 {
-				for _, child := range children {
-					temp = append(temp, "\t"+child)
-				}
-			}
+			addFile(index, length, &temp, getFileName(entry))
 		}
 	}
 
 	return temp
+}
+
+func getFileName(entry os.DirEntry) string {
+	info, err := entry.Info()
+	check(err)
+	size := fmt.Sprintf("%db", info.Size())
+	if info.Size() == 0 {
+		size = zeroSize
+	}
+	return entry.Name() + fmt.Sprintf(" (%s)", size)
+}
+
+func getEntries(path string) *[]os.DirEntry {
+	open, err := os.Open(path)
+	check(err)
+
+	entries, err := open.ReadDir(-1)
+	check(err)
+	return &entries
+}
+
+func getCollectForDir(index int, length int) func(temp *[]string, entryName string, subfolders []string) {
+	if index != length-1 {
+		return func(temp *[]string, entryName string, subfolders []string) {
+			addWithSubfolders(temp, entryName, entryPrefix, middleSubfolderPrefix, subfolders)
+		}
+	} else {
+		return func(temp *[]string, entryName string, subfolders []string) {
+			addWithSubfolders(temp, entryName, lastEntryPrefix, "\t", subfolders)
+		}
+	}
+}
+
+func addWithSubfolders(temp *[]string, entryName string, prefix string, subfolderPrefix string, subfolders []string) {
+	*temp = append(*temp, fmt.Sprintf(pattern, prefix, entryName))
+	if len(subfolders) != 0 {
+		for _, subfolder := range subfolders {
+			*temp = append(*temp, subfolderPrefix+subfolder)
+		}
+	}
+}
+
+func filter(entries []os.DirEntry, predicate func(entry os.DirEntry) bool) (result []os.DirEntry) {
+	for _, entry := range entries {
+		if predicate(entry) {
+			result = append(result, entry)
+		}
+	}
+	return
+}
+
+func addFile(index int, length int, temp *[]string, entryName string) {
+	if index != length-1 {
+		*temp = append(*temp, fmt.Sprintf(pattern, entryPrefix, entryName))
+	} else {
+		*temp = append(*temp, fmt.Sprintf(pattern, lastEntryPrefix, entryName))
+	}
 }
 
 func check(err error) {
