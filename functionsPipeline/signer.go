@@ -44,7 +44,7 @@ func (s *stepHolder) build() {
 	for _, worker := range s.workers {
 		s.wg.Add(1)
 		out := make(chan interface{}, MaxInputDataLen)
-		go func(worker job, in chan interface{}, out chan interface{}) {
+		go func(worker job, in, out chan interface{}) {
 			defer s.wg.Done()
 			defer close(out)
 			worker(in, out)
