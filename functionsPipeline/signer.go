@@ -69,11 +69,11 @@ func calculateSingleHash(data int, out chan interface{}, mutex *sync.Mutex, wg *
 	stringValue := strconv.Itoa(data)
 	firstPartChannel := make(chan string)
 	secondPartChannel := make(chan string)
+	defer close(firstPartChannel)
+	defer close(secondPartChannel)
 	go calculateFirstSingleHashPart(stringValue, firstPartChannel)
 	go calculateSecondSingleHashPart(stringValue, secondPartChannel, mutex)
 	s := <-firstPartChannel + "~" + <-secondPartChannel
-	close(firstPartChannel)
-	close(secondPartChannel)
 	fmt.Println(s)
 	out <- s
 }
